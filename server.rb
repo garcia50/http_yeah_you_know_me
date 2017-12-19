@@ -21,28 +21,23 @@ class Server
       @request_lines = []
       @client = @server.accept 
       while line = @client.gets and !line.chomp.empty?
-            @request_lines << line.chomp
+        @request_lines << line.chomp
       end
       puts "recieved request"
 
       @total_request_count += 1
 
-      case path 
-        when "/"
-          home
-        when "/hello"
-          hello
-        when "/datetime"
-          datetime
-        when "/shutdown"
-          shutdown
-        when "/word_search"
-          word_search
+      if verb == "GET"
+        get_path
+      elsif verb == "POST"
+        post_path
       end
+      
       puts "sent response"
     end
     @client.close
   end
+
 
   def home
     response(debug_information)
@@ -68,21 +63,77 @@ class Server
     response(word_search.locate_word(@sample_word))
   end
 
+  def start_game
+    response("Good Luck!")
+  end
+
+  def game
+    response("you've guessed 3 times")
+  end
+
+
+#give the new class a status code and location
+  def post_game(content_body)
+    param = content_body[/guess[^-]*/].chomp
+    guess = param[/\d+/]
+    headers = {status: "HTTP/1.1 302 redirect", "Location" => "http://google.com" }
+    response(guess, headers)
+  end
+
   private
     
   def verb
     @request_lines[0].split(" ")[0]
   end
 
-  def response(body)
+  def get_path
+    case path 
+      when "/"
+        home
+      when "/hello"
+        hello
+      when "/datetime"
+        datetime
+      when "/shutdown"
+        shutdown
+      when "/word_search"
+        word_search
+      when "/game"
+        game
+    end
+  end
+
+  def post_path
+    content_length = @request_lines[3].split(" ")[1].to_i
+    content_body = @client.read(content_length)
+
+    case path
+      when "/start_game"
+        start_game
+      when "/game"
+        post_game(content_body)
+    end
+  end
+
+  def response(body, headers = {})
     output = "<html><head></head><body> #{body} </body></html>"
-    headers = ["http/1.1 200 ok",
-                "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
-                "server: ruby",
-                "content-type: text/html; charset=iso-8859-1",
-                "content-length: #{output.length}\r\n\r\n"].join("\r\n")
-    @client.puts headers
+    # headers = ["http/1.1 200 ok",
+    #             "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
+    #             "server: ruby",
+    #             "content-type: text/html; charset=iso-8859-1",
+    #             "content-length: #{output.length}\r\n\r\n"].join("\r\n")
+    headers[:content_length] = output.length 
+    @client.puts res_headers(headers)
     @client.puts output
+  end
+
+  def res_headers(options)
+    status = options[:status] || "http/1.1 200 ok"
+    [status,
+      "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
+      "server: ruby",
+      "content-type: text/html; charset=iso-8859-1",
+      "content-length: #{options[:content_length]}\r\n\r\n"].join("\r\n")
   end
 
   def path
