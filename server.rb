@@ -2,6 +2,8 @@ require 'socket'
 require 'date'
 require_relative 'supporting_paths'
 require_relative 'word_search'
+require_relative 'game'
+
 
 class Server
   attr_reader :server, :supporting_paths
@@ -38,7 +40,6 @@ class Server
     @client.close
   end
 
-
   def home
     response(debug_information)
   end
@@ -65,19 +66,22 @@ class Server
 
   def start_game
     response("Good Luck!")
+    @game = Game.new
   end
 
   def game
-    response("you've guessed 3 times")
+    response(@game.game_information)
   end
-
 
 #give the new class a status code and location
   def post_game(content_body)
-    param = content_body[/guess[^-]*/].chomp
-    guess = param[/\d+/]
-    headers = {status: "HTTP/1.1 302 redirect", "Location" => "http://google.com" }
-    response(guess, headers)
+    param = content_body[/guess[^-]*/].chomp if !content_body[/guess[^-]*/].nil?
+    guess = param[/\d+/] if !param.nil?
+    @game.guess_monitor(guess)
+    headers = ["HTTP/1.1 302 redirect", "location: /game",
+               "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
+               "server: ruby\r\n\r\n"].join("\r\n")
+    @client.puts headers 
   end
 
   private
@@ -105,8 +109,10 @@ class Server
 
   def post_path
     content_length = @request_lines[3].split(" ")[1].to_i
+    #137
     content_body = @client.read(content_length)
-
+    #"------WebKitFormBoundarypkTbXIA9E8MdzgaM\r\nContent-Disposition: 
+    #       form-data; name=\"guess\"\r\n\r\n3\r\n------WebKitFormBoundarypkTbXIA9E8MdzgaM--\r\n"
     case path
       when "/start_game"
         start_game
@@ -127,13 +133,13 @@ class Server
     @client.puts output
   end
 
-  def res_headers(options)
-    status = options[:status] || "http/1.1 200 ok"
+  def res_headers(headers)
+    status = headers[:status] || "http/1.1 200 ok"
     [status,
       "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
       "server: ruby",
       "content-type: text/html; charset=iso-8859-1",
-      "content-length: #{options[:content_length]}\r\n\r\n"].join("\r\n")
+      "content-length: #{headers[:content_length]}\r\n\r\n"].join("\r\n")
   end
 
   def path
@@ -171,37 +177,6 @@ end
 server = Server.new
 server.http_request_loop
 
-
-
-  # def http_request_loop
-  #   # @shutdown_server = true #last minute change(already exist in initialize)
-  #   while @server_on
-  #     @request_lines = []
-  #     @client = @server.accept 
-  #     while line = @client.gets and !line.chomp.empty?
-  #           @request_lines << line.chomp
-  #     end
-  #     puts "recieved request"
-  #     output = "<html><head></head><body> #{@supporting_paths.paths(@request_lines, 
-  #               @hello_count, @total_request_count, @client)} </body></html>"
-  #     headers = ["http/1.1 200 ok",
-  #               "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
-  #               "server: ruby",
-  #               "content-type: text/html; charset=iso-8859-1",
-  #               "content-length: #{output.length}\r\n\r\n"].join("\r\n")
-  #     @client.puts headers
-  #     @client.puts output
-  #     puts "sent response"
-    
-  #     path = @request_lines[0].split(" ")[1]
-  #     if path == "/hello"
-  #       @hello_count += 1
-  #     end
-      
-  #     @total_request_count += 1
-  #   end
-  #   @client.close
-  # end
 
 
 
