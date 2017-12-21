@@ -1,21 +1,22 @@
 require 'socket'
+# require_relative 'supporting_paths'
 require 'date'
-require_relative 'supporting_paths'
 require_relative 'word_search'
 require_relative 'game'
 
-
 class Server
-  attr_reader :server, :supporting_paths
+  attr_reader :server, :supporting_paths, :response_code  
 
   attr_accessor :shutdown_server
 
   def initialize
     @server              = TCPServer.new 9292
-    @supporting_paths    = SupportingPaths.new
+    # @supporting_paths    = SupportingPaths.new
     @server_on           = true   
     @total_request_count = 0
-    @hello_count         = 0 
+    @hello_count         = 0
+    @response_code       = ""
+    @game_count          = 0
   end
 
   def http_request_loop
@@ -65,19 +66,29 @@ class Server
   end
 
   def start_game
-    response("Good Luck!")
+    if @game_count >= 1 
+      @response_code = "http/1.1 403 Forbidden"
+      response("403 Forbidden")
+    end
     @game = Game.new
+    @game_count += 1
+    response("Good Luck!")
   end
 
   def game
     response(@game.game_information)
   end
 
-#give the new class a status code and location
+  def force_error
+    @response_code = "http/1.1 500 Internal Server Error"
+    response("SystemError")
+  end
+
   def post_game(content_body)
-    param = content_body[/guess[^-]*/].chomp if !content_body[/guess[^-]*/].nil?
-    guess = param[/\d+/] if !param.nil?
-    @game.guess_monitor(guess)
+    # param = content_body[/guess[^-]*/].chomp if !content_body[/guess[^-]*/].nil?
+    # guess = param[/\d+/] if !param.nil?
+    guess = content_body.split("\r\n")[3] if !content_body.nil?
+    @game.number(guess)
     headers = ["HTTP/1.1 302 redirect", "location: /game",
                "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
                "server: ruby\r\n\r\n"].join("\r\n")
@@ -104,20 +115,22 @@ class Server
         word_search
       when "/game"
         game
+      when "/force_error"
+        force_error
     end
   end
 
   def post_path
     content_length = @request_lines[3].split(" ")[1].to_i
     #137
-    content_body = @client.read(content_length)
+    @content_body = @client.read(content_length)
     #"------WebKitFormBoundarypkTbXIA9E8MdzgaM\r\nContent-Disposition: 
     #       form-data; name=\"guess\"\r\n\r\n3\r\n------WebKitFormBoundarypkTbXIA9E8MdzgaM--\r\n"
     case path
       when "/start_game"
         start_game
       when "/game"
-        post_game(content_body)
+        post_game(@content_body)
     end
   end
 
@@ -133,8 +146,8 @@ class Server
     @client.puts output
   end
 
-  def res_headers(headers)
-    status = headers[:status] || "http/1.1 200 ok"
+  def res_headers(headers, response_code = "http/1.1 200 OK")
+    status = response_code #|| headers[:status]
     [status,
       "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
       "server: ruby",
@@ -147,6 +160,11 @@ class Server
     if req_path.include?("word_search")
       @sample_word =  req_path.split("=")[1]
       req_path = "/word_search"
+    # elsif unless req_path.include?("/, hello, datetime, shutdown, word_search,
+    #                           game, start_game, force_error")
+
+    #         @response_code = "http/1.1 404 Not Found"
+    #       end
     end
     req_path
   end

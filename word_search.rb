@@ -8,5 +8,3 @@ class WordSearch
     end
   end
 end
-
-#create a response headers class

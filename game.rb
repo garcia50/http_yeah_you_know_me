@@ -7,9 +7,12 @@ class Game
     @guess = nil
   end
 
-  def guess_monitor(user_guess)
-    @guess = user_guess
+  def number(user_guess)
+    @guess = user_guess.to_i
     guesses << guess
+  end
+
+  def guess_monitor
     if guess == answer
       "Correct!"
     elsif guess < answer
@@ -20,14 +23,7 @@ class Game
   end
 
   def game_information
-    outcome = guess_monitor(guess)
-    "You've made a total of #{guesses.count}, 
-      you're most recent guess was #{guesses.last} and your guess was #{outcome}" 
+    "You've made a total of #{guesses.count} guess(s), 
+      you're most recent guess was #{guesses.last} and your guess was #{guess_monitor}" 
   end
 end
-
-# When the player requests the game path, 
-# the server should show some information about the game 
-# including how many guesses have been made, 
-# what the most recent guess was, 
-# and whether it was too high, too low, or correct.
