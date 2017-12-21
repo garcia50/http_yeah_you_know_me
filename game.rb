@@ -27,3 +27,6 @@ class Game
       you're most recent guess was #{guesses.last} and your guess was #{guess_monitor}" 
   end
 end
+
+# "/", "hello", "datetime", "shutdown", "word_search",
+#   "game", "start_game", "force_error"

@@ -5,7 +5,7 @@ require_relative 'word_search'
 require_relative 'game'
 
 class Server
-  attr_reader :server, :supporting_paths, :response_code  
+  attr_reader :server, :supporting_paths 
 
   attr_accessor :shutdown_server
 
@@ -15,7 +15,7 @@ class Server
     @server_on           = true   
     @total_request_count = 0
     @hello_count         = 0
-    @response_code       = ""
+    @response_code       = "http/1.1 200 OK"
     @game_count          = 0
   end
 
@@ -36,6 +36,7 @@ class Server
         post_path
       end
       
+      @response_code = "http/1.1 200 OK"
       puts "sent response"
     end
     @client.close
@@ -68,11 +69,13 @@ class Server
   def start_game
     if @game_count >= 1 
       @response_code = "http/1.1 403 Forbidden"
-      response("403 Forbidden")
+      response("There is already a game in progress.")
+    else
+      @game = Game.new
+      @game_count += 1
+      @response_code = "http/1.1 301 Moved Permanently"
+      response("Good Luck!")
     end
-    @game = Game.new
-    @game_count += 1
-    response("Good Luck!")
   end
 
   def game
@@ -142,12 +145,13 @@ class Server
     #             "content-type: text/html; charset=iso-8859-1",
     #             "content-length: #{output.length}\r\n\r\n"].join("\r\n")
     headers[:content_length] = output.length 
-    @client.puts res_headers(headers)
+    @client.puts res_headers(headers, @response_code)
     @client.puts output
   end
 
-  def res_headers(headers, response_code = "http/1.1 200 OK")
-    status = response_code #|| headers[:status]
+  def res_headers(headers, response_code) #= "http/1.1 200 OK"
+    # respond_code = "http/1.1 200 OK" if response_code.nil?
+    status =  headers[:status] || response_code
     [status,
       "date: #{Time.now.strftime('%a, %e %b %Y %H:%M:%S %z')}",
       "server: ruby",
@@ -157,16 +161,15 @@ class Server
 
   def path
     req_path = @request_lines[0].split(" ")[1]
-    if req_path.include?("word_search")
+    if !req_path.include?("/", "hello", "datetime", "shutdown", "word_search",
+                         "game", "start_game", "force_error")
+      @response_code = "http/1.1 404 Not Found"
+      response("This is not a valid search!")
+    elsif req_path.include?("word_search")
       @sample_word =  req_path.split("=")[1]
       req_path = "/word_search"
-    # elsif unless req_path.include?("/, hello, datetime, shutdown, word_search,
-    #                           game, start_game, force_error")
-
-    #         @response_code = "http/1.1 404 Not Found"
-    #       end
     end
-    req_path
+    req_path 
   end
 
   def debug_information
