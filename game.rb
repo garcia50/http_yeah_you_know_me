@@ -23,10 +23,11 @@ class Game
   end
 
   def game_information
-    "You've made a total of #{guesses.count} guess(s), 
+    if guesses.empty?
+      "Please make a guess first. Make a post request to /game."
+    else
+      "You've made a total of #{guesses.count} guess(s), 
       you're most recent guess was #{guesses.last} and your guess was #{guess_monitor}" 
+    end
   end
 end
-
-# "/", "hello", "datetime", "shutdown", "word_search",
-#   "game", "start_game", "force_error"
